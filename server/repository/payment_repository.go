@@ -3,16 +3,14 @@ package repository
 import (
 	"sync"
 
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/domain"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/domain"
 )
 
-// PaymentRepository provides access to the payment storage.
 type PaymentRepository struct {
 	payments map[string]*domain.Payment
 	mutex    sync.RWMutex
 }
 
-// NewPaymentRepository creates a new in-memory repository.
 func NewPaymentRepostiory() *PaymentRepository {
 	return &PaymentRepository{
 		payments: make(map[string]*domain.Payment),
