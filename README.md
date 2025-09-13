@@ -1,37 +1,39 @@
+
 # Chapa - Webhook-Based Payment Notification System Assignment
 
 This repository contains the solution for the take-home assignment from Chapa Financial Technologies S.C.
 
-The project simulates a simple, webhook-based payment notification system built in Go. It consists of two main components:
-1.  A **Payment Processor** server that accepts payment requests, simulates processing, and dispatches a webhook upon completion.
-2.  A mock **Client Server** that listens for and logs these incoming webhook notifications.
+The project is a simulation of a webhook-based payment system, built in Go. It has been enhanced with production-ready features like containerization with Docker, secure webhook verification using HMAC signatures, and environment-based configuration.
 
 ## Features
 
--   **Simulated Payment Processing**: Accepts payment details via a RESTful API endpoint.
--   **Asynchronous Webhook Notifications**: Uses goroutines to process payments in the background without blocking the initial API response.
--   **Clean Architecture**: The code is structured following Clean Architecture principles for better maintainability, scalability, and testability.
--   **Robust Unit Tests**: The core business logic is verified with a unit test suite that covers key success and failure scenarios.
--   **Concurrent & Safe**: The in-memory data store is protected with a mutex to safely handle concurrent requests.
+-   **Containerized with Docker**: Both the server and client services are fully containerized for a simple, one-command setup using Docker Compose.
+-   **Secure Webhooks (HMAC)**: Webhook payloads are cryptographically signed using HMAC-SHA256 to ensure their integrity and authenticity.
+-   **Environment-Based Configuration**: All configuration (ports, secrets) is managed via environment variables, following 12-Factor App principles.
+-   **Clean Architecture**: The code is structured into distinct layers for better maintainability, scalability, and testability.
+-   **Asynchronous Processing**: Uses goroutines for non-blocking payment processing, ensuring a responsive API.
+-   **Robust Unit Tests**: The core business logic is verified with a comprehensive unit test suite.
 
 ## Architectural Approach: Clean Architecture
 
-This project is built using the principles of **Clean Architecture** to ensure a robust and maintainable codebase. This approach decouples the business logic from external concerns like databases, frameworks, and other third services.
+This project is built using the principles of **Clean Architecture** to ensure a robust and maintainable codebase. This approach decouples the business logic from external concerns like databases, frameworks, and other third-party services.
 
 The core layers are:
-
--   **`domain`**: Contains the core business entities and objects.
--   **`repository`**: Defines the interfaces for data persistence and provides the in-memory implementation.
--   **`usecase`**: Orchestrates the business logic and data flow. It contains the application's specific rules.
--   **`handler`**: The outermost layer, responsible for handling HTTP requests and interfacing with the usecase.
-
-This separation of concerns makes the system highly testable, as demonstrated by the unit tests for the usecase layer.
+-   **`domain`**: Contains the core business entities.
+-   **`repository`**: Defines the interfaces for data persistence.
+-   **`usecase`**: Orchestrates the business logic and data flow.
+-   **`handler`**: The outermost layer, responsible for handling HTTP requests.
 
 ## Project Structure
 
 ```plaintext
 .
+├── docker-compose.yml
+├── .gitignore
 ├── server/
+│   ├── .env.example       
+│   ├── Dockerfile
+│   └── ... (source code)
 │   ├── domain/
 |   |   ├── payment_entity.go
 │   ├── handler/
@@ -43,19 +45,23 @@ This separation of concerns makes the system highly testable, as demonstrated by
 │   │   └── payment_usecase_test.go 
 │   └── main.go
 └── client/
+    ├── .env.example 
+    ├── Dockerfile
     └── main.go
 ```
 
-## Getting Started
+## Getting Started (Docker Recommended)
 
 ### Prerequisites
 
--   Go (version 1.18 or higher)
+-   Docker
+-   Docker Compose
 -   Git
+-   Go (only required for running tests locally)
 
 ### How to Run
 
-Follow these steps to run the processor and client servers locally. You will need three separate terminal windows.
+This project is designed to be run easily using Docker Compose.
 
 #### Step 1: Clone the Repository
 
@@ -64,68 +70,64 @@ git clone https://github.com/{your-github-username}/chapa-webhook-notification-s
 cd chapa-webhook-notification-system-assignment
 ```
 
-#### Step 2: Run the Client Server (Terminal 1)
+#### Step 2: Set Up Environment Variables
 
-This server will listen for incoming webhook notifications.
+This project uses `.env` files to manage secrets and configuration, which are kept out of Git for security. Template files (`.env.example`) are provided as a blueprint.
 
+**For the server:**
 ```bash
-cd client
-go run main.go
+cp server/.env.example server/.env
 ```
-You should see the output: `Mock Client listening for webhooks on http://localhost:8081/webhook`
 
-#### Step 3: Run the Payment Processor Server (Terminal 2)
-
-This server will accept payment requests.
-
+**For the client:**
 ```bash
-cd server
-go run main.go
+cp client/.env.example client/.env
 ```
-You should see the output: `Payment Processor server starting on http://localhost:8080`
+> **Important:** The `WEBHOOK_SECRET_KEY` in both `.env` files must match for the webhook signature verification to work. The default value is already set correctly in the example files.
 
-#### Step 4: Send a Test Payment Request (Terminal 3)
+#### Step 3: Build and Run with Docker Compose
 
-Use `curl` to send a POST request to the payment processor.
+From the root of the project, run this single command:
+```bash
+docker-compose up --build
+```
+This command will build the Docker images, create a private network for them, and start the containers. You will see the logs from both the server and client in your terminal.
+
+#### Step 4: Send a Test Payment Request
+
+Open a **new terminal** and use `curl` to send a request to the server.
+
+> **Note:** Inside the Docker network, services communicate using their service names. Therefore, the `webhookUrl` must be `http://client:8081`, not `localhost`.
 
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
-    "amount": 150.75,
-    "currency": "ETB",
-    "webhookUrl": "http://localhost:8081/webhook"
+    "amount": 250.00,
+    "currency": "USD",
+    "webhookUrl": "http://client:8081/webhook"
   }' \
   http://localhost:8080/api/v1/payment
 ```
 
+### Expected Outcome
+
+1.  Your `curl` command will receive an immediate **`202 Accepted`** response.
+2.  In the `docker-compose` logs, the **server** will log that it is processing the payment.
+3.  After 3 seconds, the server will log that it sent the webhook with an `X-Chapa-Signature` header:).
+4.  The **client** will log that it has received the webhook and that the **signature was successfully verified**.
+
 ## Testing
 
-This project includes a unit test suite for the core business logic located in the `usecase` layer. The tests verify the system's reliability by ensuring the synchronous part of the payment creation process works as expected.
-
-The test suite uses a flexible mock repository (a "test double") that acts as a "spy" to confirm that:
--   The repository's `Create` method is called correctly.
--   A new payment is created with the initial `PENDING` status.
--   A unique ID is generated for the new payment.
-
-This approach validates the correctness of the business logic in isolation, which is a key benefit of the Clean Architecture pattern.
-
-### Running the Tests
-
-To run the unit tests for the server application, navigate to the `server/` directory and execute the following command:
-
+To run the unit tests for the server's business logic, navigate to the `server/` directory and run:
 ```bash
 go test ./... -v
 ```
 
-The `-v` flag enables verbose output, which will list the test cases as they run and confirm they have passed.
-
 ## Future Enhancements
 
-This implementation provides a solid, well-tested foundation. For a production-ready system, the following features would be the next logical steps:
+This implementation provides a solid, secure, and well-tested foundation. The next logical steps to make it fully production-grade would be:
 
--   **Persistent Storage**: Replace the in-memory repository with a persistent database (e.g., PostgreSQL or MongoDB).
--   **Enhanced Security**: Implement HMAC webhook signature verification to allow the client to confirm that a webhook is authentic.
--   **Configuration Management**: Externalize configuration like server ports using environment variables.
--   **Robust Error Handling & Retries**: Add a retry mechanism for failed webhook deliveries to handle temporary client unavailability.
--   **Containerization**: Add `Dockerfile`s and a `docker-compose.yml` to streamline the setup and deployment process.
+-   **Persistent Storage**: Replace the in-memory repository with a persistent database (e.g., PostgreSQL or MongoDB) to ensure data durability.
+-   **Robust Error Handling & Retries**: Implement a durable queue and retry mechanism (e.g., with exponential backoff) for failed webhook deliveries to handle cases where the client server is temporarily unavailable.
+```

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./server/.env
+    environment:
+      - APP_ENV=production
+    networks:
+      - payment-net
+
+  client:
+    build:
+      context: ./client
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./client/.env
+    environment:
+      - APP_ENV=production
+    networks:
+      - payment-net
+
+networks:
+  payment-net:
+    driver: bridge
+  

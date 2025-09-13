@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/domain"
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/usecase"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/domain"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/usecase"
 )
 
 type PaymentHandler struct {

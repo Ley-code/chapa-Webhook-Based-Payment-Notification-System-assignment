@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/domain"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/domain"
 )
 
 type MockPaymentRepository struct {
 	CreateFunc       func(payment *domain.Payment) error
 	UpdateStatusFunc func(id, status string) error
 
-	// we can add fields to track how the mock was used.(spies)
 	CreateCalled bool
-	LastPayment  *domain.Payment // Stores the payment that was "created"
+	LastPayment  *domain.Payment 
 }
 
 func (m *MockPaymentRepository) Create(payment *domain.Payment) error {

@@ -3,23 +3,34 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/handler"
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/repository"
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/usecase"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/handler"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/middleware"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/repository"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/usecase"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	port:= "8080"
-	// 1. Create dependencies starting from the inner layer.
+	if os.Getenv("APP_ENV") != "production" {
+		if err := godotenv.Load(); err != nil {
+			log.Println("Warning: .env file not found")
+		}
+	}
+
 	paymentRepository := repository.NewPaymentRepostiory()
 	paymentUsecase := usecase.NewPaymentUsecase(paymentRepository)
 	paymentHandler := handler.NewPaymentHandler(paymentUsecase)
 
-	// 2. Register the handler and start the server.
-	http.Handle("/api/v1/payment", paymentHandler)
+	http.Handle("/api/v1/payment", middleware.Recovery(paymentHandler))
 
-	log.Println("Payment Processor server starting on http://localhost:8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" 
+	}
+
+	log.Printf("Payment Processor server starting on http://localhost:%s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("FATAL: Could not start server: %v", err)
 	}

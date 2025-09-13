@@ -2,12 +2,16 @@ package usecase
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/domain"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/domain"
 	"github.com/google/uuid"
 )
 
@@ -40,7 +44,7 @@ func (pu *PaymentUsecase) ProcessPayment(paymentReq domain.PaymentRequest) error
 
 	// create the initial "PENDING" state in memory using hashmap
 	if err := pu.repository.Create(newPayment); err != nil {
-		fmt.Printf("ERROR: Failed to create payment: %v", err)
+		log.Printf("ERROR: Failed to create payment: %v", err)
 		return err
 	}
 
@@ -50,30 +54,49 @@ func (pu *PaymentUsecase) ProcessPayment(paymentReq domain.PaymentRequest) error
 	return nil
 }
 func (pu *PaymentUsecase) simulateAndNotify(payment *domain.Payment) {
-	fmt.Printf("INFO: Processing payment %s...", payment.ID)
+	log.Printf("INFO: Processing payment %s...", payment.ID)
 	
 	//simulating processing payment
 	time.Sleep(3 * time.Second)
 
 	// marking payment as processed and updating it in the repository.
 	newStatus := "PROCESSED"
-	fmt.Printf("INFO: Payment %s is now %s.", payment.ID, newStatus)
+	log.Printf("INFO: Payment %s is now %s.", payment.ID, newStatus)
 	pu.repository.UpdateStatus(payment.ID, newStatus)
 	payment.Status = newStatus 
 
 	payload, err := json.Marshal(payment)
 	if err != nil {
-		fmt.Printf("ERROR: Failed to create webhook payload for payment %s: %v", payment.ID, err)
+		log.Printf("ERROR: Failed to create webhook payload for payment %s: %v", payment.ID, err)
 		return
 	}
 
-	// this is where the magic happens. sending the webhook notification.
-	resp, err := http.Post(payment.WebhookURL, "application/json", bytes.NewBuffer(payload))
+	secret := os.Getenv("WEBHOOK_SECRET_KEY")
+	if secret == "" {
+		log.Printf("ERROR: WEBHOOK_SECRET_KEY is not set. Cannot send webhook.")
+		return
+	}
+
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write(payload)
+	signature := hex.EncodeToString(h.Sum(nil))
+
+	req, err := http.NewRequest("POST", payment.WebhookURL, bytes.NewBuffer(payload))
 	if err != nil {
-		fmt.Printf("ERROR: Failed to send webhook for payment %s: %v", payment.ID, err)
+		log.Printf("ERROR: Failed to create webhook request for payment %s: %v", payment.ID, err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Chapa-Signature", signature) 
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("ERROR: Failed to send webhook for payment %s: %v", payment.ID, err)
 		return
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("INFO: Webhook for payment %s sent successfully. Status: %s", payment.ID, resp.Status)
+	log.Printf("INFO: Webhook for payment %s sent successfully. Status: %s", payment.ID, resp.Status)
 }
