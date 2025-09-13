@@ -6,9 +6,10 @@ import (
 	"os"
 
 	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/handler"
+	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/middleware"
 	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/repository"
 	"github.com/Ley-code/chapa-Webhook-Based-Payment-Notification-System-assignment/server/usecase"
-	"github.com/joho/godotenv" 
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 	paymentUsecase := usecase.NewPaymentUsecase(paymentRepository)
 	paymentHandler := handler.NewPaymentHandler(paymentUsecase)
 
-	http.Handle("/api/v1/payment", paymentHandler)
+	http.Handle("/api/v1/payment", middleware.Recovery(paymentHandler))
 
 	port := os.Getenv("PORT")
 	if port == "" {
